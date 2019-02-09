@@ -2,15 +2,16 @@ from __future__ import print_function
 import datetime
 import pickle
 import os.path
+import csv
+import datetime
 from googleapiclient.discovery import build
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 
 # If modifying these scopes, delete the file token.pickle.
 SCOPES = ['https://www.googleapis.com/auth/calendar']
-CAL_ID = 'primary' #calendar ID
-CAL_ID_CANVAS = 'rtpri0j3p4skqibte917a4g730@group.calendar.google.com'
-CAL_ID = CAL_ID_CANVAS
+CAL_ID = 'rtpri0j3p4skqibte917a4g730@group.calendar.google.com'
+
 
 def main():
     """Shows basic usage of the Google Calendar API.
@@ -43,6 +44,45 @@ def main():
 
     del_events(service)
     #make_event(service)
+    #parse(service)
+
+def parse(service):
+    arr = []
+    with open('Book1.csv', encoding = 'ascii', errors = 'ignore') as csv_file:
+        csv_reader = csv.reader(csv_file, delimiter=',') #, encoding='ascii'
+        line_count = 0
+        prev_row = []
+        for row in csv_reader:
+            new_row = []
+            for c in range(len(row) - 1):
+                if row[c] == '': #use prev row info when cell empty
+                    new_row.append(prev_row[c])
+                else:
+                    new_row.append(row[c])
+            arr.append(new_row)
+            prev_row = new_row
+            line_count += 1
+
+        print(*arr, sep = '\n')
+
+    add_events(service, arr)
+
+def add_events(service, events):
+    properties = []
+    for prop in events[0]:
+        properties.append(prop)
+
+    for event_index in range(1, len(events)):
+        event = events[event_index]
+        #dictionary of properties
+        description = {}
+        c = 0
+        for c in range(len(event)):
+            description[properties[c]] = event[c]
+            c += 1
+        print(description)
+        make_event(service, description)
+
 
 
 def print_events(service):
@@ -74,35 +114,24 @@ def del_events(service):
         print(id, event['summary'])
         service.events().delete(calendarId=CAL_ID, eventId=id).execute()
 
-
-
-def make_event(service):
+def make_event(service, event):
+    now = datetime.datetime.utcnow().isoformat()
+    print(now)
     event = {
-    'summary': 'Google I/O 2015',
-    'location': '800 Howard St., San Francisco, CA 94103',
-    'description': 'A chance to hear more about Google\'s developer products.',
+    'summary': event['Course'],
+    'location': event['Bldg'] + ' ' + event['Room'],
+    'description': event['Title'],
     'start': {
-        'dateTime': '2019-02-28T09:00:00-06:00',
+        'dateTime': now,
         'timeZone': 'America/Chicago',
     },
     'end': {
-        'dateTime': '2019-02-28T17:00:00-06:00',
+        'dateTime': '2019-05-28T17:00:00',
         'timeZone': 'America/Chicago',
     },
     'recurrence': [
-        'RRULE:FREQ=DAILY;COUNT=2'
-    ],
-    'attendees': [
-        {'email': 'lpage@example.com'},
-        {'email': 'sbrin@example.com'},
-    ],
-    'reminders': {
-        'useDefault': False,
-        'overrides': [
-        {'method': 'email', 'minutes': 24 * 60},
-        {'method': 'popup', 'minutes': 10},
-        ],
-    },
+        'RRULE:FREQ=WEEKLY;COUNT=2;BYDAY=TU'
+    ]
     }
 
     event = service.events().insert(calendarId=CAL_ID, body=event).execute()
